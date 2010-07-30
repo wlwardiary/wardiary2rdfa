@@ -1,0 +1,20 @@
+
+REQUIREMENTS 
+
+python
+lxml http://codespeak.net/lxml/
+
+$ sudo easy_install lxml
+
+
+EXAMPLE USAGE
+
+rdfproc from redland librdf http://librdf.org/
+xsltproc from libxml2 http://xmlsoft.org/XSLT/
+kml.xslt from http://github.com/wlwardiary/wardiary-mashup/blob/master/kml.xsl
+
+$ mkdir htdocs
+$ ./wardiary2rdfa afg.csv wardiary.xhtml htdocs
+$ find htdocs -type f -name '*.html' -exec rdfproc wardiary parse {} rdfa \;
+$ rdfproc -r xml store query sparql - ''
+$ xsltproc kml.xsl tfsparql.xml > TF_v0.1.kml
