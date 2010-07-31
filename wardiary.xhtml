@@ -1,0 +1,80 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML+RDFa 1.0//EN" "http://www.w3.org/MarkUp/DTD/xhtml-rdfa-1.dtd">
+<html
+	xmlns="http://www.w3.org/1999/xhtml" 
+	xmlns:dc="http://purl.org/dc/elements/1.1/" 
+	xmlns:ctag="http://commontag.org/ns#" 
+	xmlns:ism="urn:us:gov:ic:ism:v2#" 
+	xmlns:units="urn:us:mil:units:v1#" 
+	xmlns:report="urn:us:mil:report:v1#" 
+	xmlns:isaf="urn:nato:mil:v1#"
+    xmlns:geo="http://www.w3.org/2003/01/geo/wgs84_pos#"
+    xmlns:kml="http://www.opengis.net/kml/2.2#"
+	version="XHTML+RDFa 1.0" xml:lang="en">
+<head>
+ <title>TITLE</title>
+ <meta property="ism:releasableTo" content="Wikileaks" />
+ <base href="URI" />
+</head>
+<body>
+ <div id="report_key">Report key: <span property="dc:identifier"></span></div>
+ <div id="tracking_number">Tracking number: <span property="dc:identifier"></span></div>
+ <div id="date">Date occurred: <span property="dc:date"></span></div>
+ <div id="region">Region: <span property="dc:coverage"></span></div>
+ <div id="location">
+     Lat: <span property="geo:lat"></span> 
+     Long: <span property="geo:long"></span> 
+     Coordinates: <span property="kml:coordinates"></span>
+ </div>
+ <ul id="mgrs"><li>MGRS: <span property="report:mgrs"></span></li></ul>
+ <div id="type">Type: <span property="dc:type"></span></div>
+ <div id="category">Category: <span property="report:category"></span></div>
+ <div id="attack_on">Attack on: <span property="report:attack_on"></span></div>
+ <div id="complex_attack">Complex attack: <span property="report:complex_attack"></span></div>
+ <div id="color">Color: <span property="report:color"></span></div>
+ <div id="classification">Classification: <span property="ism:classification"></span></div>
+ <div id="reporting_unit">Reporting unit: <span property="report:reporting_unit"></span></div>
+ <div id="unit_name">Unit name: <span property="report:unit_name"></span></div>
+ <div id="type_of_unit">Type of unit: <span property="report:type_of_unit"></span></div>
+ <div id="originator_group">Originator group: <span property="report:originator_group"></span></div>
+ <div id="updated_by_group">Updated by group: <span property="report:updated_by_group"></span></div>
+ <div id="ccir">Commander's Critical Information Requirements: <span property="report:ccir"></span></div>
+ <div id="sigact">Significant: <span property="report:sigact"></span></div>
+ <div id="affiliation">Affiliation: <span property="report:affiliation"></span></div>
+
+ <table>
+   <tr>
+     <th>friendly wia</th>
+     <th>friendly kia</th>
+     <th>host nation wia</th>
+     <th>host nation kia</th>
+     <th>civilian wia</th>
+     <th>civilian kia</th>
+     <th>enemy wia</th>
+     <th>enemy kia</th> 
+     <th>enemy detained</th>
+   </tr>
+   <tr>
+     <td id="friendly_wia"><span property="report:friendly_wia"></span></td>
+     <td id="friendly_kia"><span property="report:friendly_kia"></span></td>
+     <td id="host_nation_wia"><span property="report:host_nation_wia"></span></td>
+     <td id="host_nation_kia"><span property="report:host_nation_kia"></span></td>
+     <td id="civilian_wia"><span property="report:civilian_wia"></span></td>
+     <td id="civilian_kia"><span property="report:civilian_kia"></span></td>
+     <td id="enemy_wia"><span property="report:enemy_wia"></span></td>
+     <td id="enemy_kia"><span property="report:enemy_kia"></span></td>
+     <td id="enemy_detained"><span property="report:enemy_detained"></span></td>
+   </tr>
+ </table>
+<!--
+ <ul id="infantry">
+  <li><span property="mil:infantry">INFANTRY</span></li>
+ </ul>
+-->
+ <ul id="taskforce">
+  <li><span property="units:taskforce"></span></li>
+ </ul>
+ <div id="isaf">ISAF Country: <span property="isaf:country"></span></div>
+ <h1 id="subject">Subject: <span property="dc:subject"></span></h1>
+ <p id="summary" property="report:summary"></p>
+</body>
+</html>
