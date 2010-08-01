@@ -1,0 +1,400 @@
+#!/usr/bin/env python
+#
+#    Copyright 2010 
+# 
+#    This program is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, either version 2 of the License, or
+#    (at your option) any later version.
+#
+#    This program is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+
+VERSION='0.0.4'
+DEBUG=False
+
+import csv, re, sys, os.path
+from lxml import etree
+from copy import deepcopy
+
+if len(sys.argv) < 4 or len(sys.argv) > 5:
+    print "%s: wardiary csv to RDFa converter version %s" % (sys.argv[0], VERSION)
+    print "usage: %s source template destination [limit]" % sys.argv[0]
+    print " - source:\t\ta csv file"
+    print " - template:\t\txml/xhtml template."
+    print " - destination:\t\tthe destination directory"
+    print " - limit:\t\tinterger, only create the first n files"
+    print "SEE README.txt FOR EXAMPLE USAGE"
+    sys.exit(0)
+
+source = sys.argv[1]
+template = sys.argv[2]
+dest = sys.argv[3]
+
+if not os.path.isfile(source):
+    sys.stderr.write("Error: source %s is not a file\n" % source)
+    sys.exit(1)
+
+if not os.path.isfile(template):
+    sys.stderr.write("Error: template %s is not a file\n" % template)
+    sys.exit(1)
+
+if not os.path.isdir(dest):
+    sys.stderr.write("Error: destination %s is not a directory\n" % dest)
+    sys.exit(1)
+
+limit = None
+if len(sys.argv) == 5:
+    limit = int(sys.argv[4])
+
+xmlns = 'http://www.w3.org/1999/xhtml'
+
+# This is the template for the WikiLeaks URI. not in use at the moment.
+# URI = 'http://wardiary.wikileaks.org/afg/event/%d/%.2d/AFG%d%.2d%.2dn%d.html'
+# FILEPATH = '%s/afg/event/%d/%.2d/AFG%d%.2d%.2dn%d.html'
+
+URI = 'http://wardiary.wikileaks.org/afg/event/%d/%.2d/%s.html'
+FILEPATH = '%s/afg/event/%d/%.2d/%s.html'
+DESTDIR = '%s/afg/event/%d/%.2d/'
+a_tag = '{'+xmlns+'}a'
+span_tag = '{'+xmlns+'}span'
+
+# load xhtml template
+try:
+    tree = etree.parse(template)
+except IOError:
+    sys.stderr.write("Error: could not open template %s\n" % template)
+    sys.exit(1)
+
+#
+# xpath node selector
+#
+find_title = etree.XPath("x:head/x:title", namespaces={'x':xmlns})
+find_base = etree.XPath("x:head/x:base[@href]", namespaces={'x':xmlns})
+find_subject = etree.XPath("x:body/x:h1[@id='subject']/x:span", namespaces={'x':xmlns})
+find_summary = etree.XPath("x:body/x:p[@id='summary']", namespaces={'x':xmlns})
+find_date = etree.XPath("x:body/x:div[@id='date']/x:span[@property='dc:date']", namespaces={'x':xmlns})
+find_classification = etree.XPath("x:body/x:div[@id='classification']/x:span[@property='ism:classification']", namespaces={'x':xmlns})
+find_lat = etree.XPath("x:body/x:div[@id='location']/x:span[@property='geo:lat']", namespaces={'x':xmlns})
+find_long = etree.XPath("x:body/x:div[@id='location']/x:span[@property='geo:long']", namespaces={'x':xmlns})
+find_coordinates = etree.XPath("x:body/x:div[@id='location']/x:span[@property='kml:coordinates']", namespaces={'x':xmlns})
+find_region = etree.XPath("x:body/x:div[@id='region']/x:span[@property='dc:coverage']", namespaces={'x':xmlns})
+find_report_key = etree.XPath("x:body/x:div[@id='report_key']/x:span[@property='dc:identifier']", namespaces={'x':xmlns})
+find_tracking_number = etree.XPath("x:body/x:div[@id='tracking_number']/x:span[@property='dc:identifier']", namespaces={'x':xmlns})
+find_type = etree.XPath("x:body/x:div[@id='type']/x:span[@property='dc:type']", namespaces={'x':xmlns})
+find_color = etree.XPath("x:body/x:div[@id='color']/x:span[@property='report:color']", namespaces={'x':xmlns})
+find_attack_on = etree.XPath("x:body/x:div[@id='attack_on']/x:span[@property='report:attack_on']", namespaces={'x':xmlns})
+find_taskforce_ul = etree.XPath("x:body/x:ul[@id='taskforce']", namespaces={'x':xmlns})
+find_taskforce_li = etree.XPath("x:body/x:ul[@id='taskforce']/x:li", namespaces={'x':xmlns})
+find_mgrs_ul = etree.XPath("x:body/x:ul[@id='mgrs']", namespaces={'x':xmlns})
+find_mgrs_li = etree.XPath("x:body/x:ul[@id='mgrs']/x:li", namespaces={'x':xmlns})
+find_isaf_country = etree.XPath("x:body/x:div[@id='isaf']/x:span[@property='isaf:country']", namespaces={'x':xmlns})
+find_friendly_wia = etree.XPath("x:body/x:table/x:tr/x:td[@id='friendly_wia']/x:span", namespaces={'x':xmlns})
+find_friendly_kia = etree.XPath("x:body/x:table/x:tr/x:td[@id='friendly_kia']/x:span", namespaces={'x':xmlns})
+find_host_nation_wia = etree.XPath("x:body/x:table/x:tr/x:td[@id='host_nation_wia']/x:span", namespaces={'x':xmlns})
+find_host_nation_kia = etree.XPath("x:body/x:table/x:tr/x:td[@id='host_nation_kia']/x:span", namespaces={'x':xmlns})
+find_civilian_wia = etree.XPath("x:body/x:table/x:tr/x:td[@id='civilian_wia']/x:span", namespaces={'x':xmlns}) 
+find_civilian_kia = etree.XPath("x:body/x:table/x:tr/x:td[@id='civilian_kia']/x:span", namespaces={'x':xmlns}) 
+find_enemy_wia = etree.XPath("x:body/x:table/x:tr/x:td[@id='enemy_wia']/x:span", namespaces={'x':xmlns}) 
+find_enemy_kia = etree.XPath("x:body/x:table/x:tr/x:td[@id='enemy_kia']/x:span", namespaces={'x':xmlns})
+find_enemy_detained = etree.XPath("x:body/x:table/x:tr/x:td[@id='enemy_detained']/x:span", namespaces={'x':xmlns})
+find_table = etree.XPath("x:body/x:table", namespaces={'x':xmlns})
+find_originator_group = etree.XPath("x:body/x:div[@id='originator_group']/x:span[@property='report:originator_group']", namespaces={'x':xmlns})
+find_updated_by_group = etree.XPath("x:body/x:div[@id='updated_by_group']/x:span[@property='report:updated_by_group']", namespaces={'x':xmlns})
+find_ccir = etree.XPath("x:body/x:div[@id='ccir']/x:span[@property='report:ccir']", namespaces={'x':xmlns})
+find_sigact = etree.XPath("x:body/x:div[@id='sigact']/x:span[@property='report:sigact']", namespaces={'x':xmlns})
+find_affiliation = etree.XPath("x:body/x:div[@id='affiliation']/x:span[@property='report:affiliation']", namespaces={'x':xmlns})
+
+#
+# compile regex rules for content extraction and verification
+#
+# multiple GUID formats
+match_key_844412 = re.compile(r'[0-9A-Z]{8}-[0-9A-Z]{4}-[0-9A-Z]{4}-[0-9A-Z]{4}-[0-9A-Z]{12}', re.M|re.I)
+match_key_84416 = re.compile(r'[0-9A-Z]{8}-[0-9A-Z]{4}-[0-9A-Z]{4}-[0-9A-Z]{16}', re.M|re.I)
+match_key_0x32 = re.compile(r'(0x)?[0-9A-Z]{32}', re.M|re.I)
+match_key_num = re.compile(r'1[0-9]{6}', re.M|re.I)
+match_taskforce = re.compile(r'(\s)TF(\s?){1}[0-9]{1}(-?)[0-9]{1,5}', re.M)
+match_geo = re.compile(r'-?[\d]{2}.[\d]{8}')
+match_mgrs = re.compile(r'([0-9]{1,2})([A-H,J-N,P-Z]{1})(\s)?([A-H,J-N,P-Z]{1,2})(\s)?([0-9]{3,5})(\s)?([0-9]{3,5})', re.M)
+match_germany = re.compile(r'(?:\W|\s)(DEU|GER)(?:\W|\s)', re.M|re.I) 
+
+#TODO match_doctor = re.compile(r'(?:\W)(Dr\.\s+\w+)(\s+\w+)(?:\W|\s)')
+#TODO match_date = re.compile(r'(UPDATE\s)?[\d]{6}(Z|L)(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)?(\d{2})?', re.M|re.I)
+#TODO match_infantry = re.compile(r'\s([A-D]{1}/[0-9-]{1,5})(IN)?\s', re.M)
+
+#
+# load csv
+#
+
+try:
+    content = csv.reader(open(source), delimiter=',', quotechar='"', escapechar='\\')
+except IOError:
+    sys.stderr.write("Error: could not open source %s\n" % source)
+    sys.exit(1)
+
+count = 0
+skipcount = 0
+
+# TODO event_numbers = {}
+
+# check for duplicate keys
+keyring844412 = set() 
+keyring84416 = set()
+keyring0x32 = set()
+keyringnum = set()
+
+for row in content:
+    count = count + 1
+    if limit is not None and count > limit:
+        print "Limit %d reached." % limit
+        sys.exit(0)
+
+    # try to read csv values
+    # FIXME this might fail, since the python csv reader seems to have some trouble with the file
+    try:
+        report_key, date_occurred, type, category, tracking_number, title, summary, region, attack_on, complex_attack, reporting_unit, unit_name, type_of_unit, friendly_wia, friendly_kia, host_nation_wia, host_nation_kia, civilian_wia, civilian_kia, enemy_wia, enemy_kia, enemy_detained, mgrs, latitude, longitude, originator_group, updated_by_group, ccir, sigact, affiliation, dcolor, classification = row
+    except ValueError:
+        if DEBUG:
+            sys.stderr.write("Warning: Could not read line %d" % count)
+        skipcount = skipcount + 1
+        continue # skip this row
+
+
+    # verify the report key
+    re_key844412 = re.search(match_key_844412, report_key)
+    re_key84416  = re.search(match_key_84416, report_key)
+    re_key0x32   = re.search(match_key_0x32, report_key)
+    re_keynum    = re.search(match_key_num, report_key)
+
+    if re_key844412 is not None:
+        key = re_key844412.group(0).strip()
+        if key in keyring844412:
+            sys.stderr.write("Warning: Key %s already converted. duplicate?\n" % key)
+            continue
+        keyring844412.add(key)
+
+    if re_key844412 is None and re_key84416 is not None:
+        key = re_key84416.group(0).strip()
+        if key in keyring84416:
+            sys.stderr.write("Warning: Key %s already converted. duplicate?\n" % key)
+            continue
+        keyring84416.add(key)
+
+    if re_key844412 is None and re_key84416 is None and re_key0x32 is not None:
+        key = re_key0x32.group(0).strip()
+        if key in keyring0x32:
+            sys.stderr.write("Warning: Key %s already converted. duplicate?\n" % key)
+            continue
+        keyring0x32.add(key)
+
+    if re_key844412 is None and re_key84416 is None and re_key0x32 is None:
+        key = re_keynum.group(0).strip()
+        if key in keyringnum:
+            sys.stderr.write("Warning: Key %s already converted. duplicate?\n" % key)
+            continue
+        keyringnum.add(key)
+
+    if re_key844412 is None and re_key84416 is None and re_key0x32 is None and re_keynum is None:
+        sys.stderr.write("Warning: unknown key %s\n" % report_key)
+        continue
+
+    del re_key844412, re_key84416, re_key0x32, re_keynum
+
+
+###############################################
+#
+# TODO 
+# rebuild the URI Wikileaks is using.
+# looks like they are counting the events for a day
+# however, the dates in the csv are not in order, so this needs a extra run over the file
+#
+#    event_date = "%d-%.2d-%.2d" % (int(year), int(month), int(day))
+#    if not event_date in event_numbers:
+#        event_numbers = { event_date : 1}
+#    else:
+#        event_numbers = { event_date : event_numbers[event_date] + 1 }
+#   destfile = FILEPATH % (dest, int(year), int(month), int(year), int(month), int(day), event_numbers[event_date])
+#   find_base(tmp_tree)[0].set('href', URI %
+#        (int(year), int(month), int(year), int(month), int(day), event_numbers[event_date]))
+#
+###############################################
+
+
+    # month and year for the dest dir
+    year, month, day = date_occurred.split(' ')[0].split('-') # 2004-01-01 00:00:00
+
+    # skip file if exists
+    # TODO overwrite option -f
+
+    destfile = FILEPATH % (dest, int(year), int(month), str(key))
+    if os.path.exists(destfile):
+        sys.stderr.write("Warning: file %s exists. skipped.\n" % destfile)
+        continue
+
+    # create dest dir
+    if not os.path.exists( DESTDIR % (dest, int(year), int(month)) ):
+        os.makedirs( DESTDIR % (dest, int(year), int(month)) )
+
+    # create a work copy of the xhtml template
+    tmp_tree = deepcopy(tree)
+
+    # extract task force number
+    re_taskforce = re.finditer(match_taskforce, summary + reporting_unit + unit_name)
+    tflist = set()
+    for re_tfm in re_taskforce:
+        if re_tfm is not None:
+            tflist.add(re_tfm.group(0).strip().replace(" ",""))
+        
+    if len(tflist)>0:
+        taskforce_ul = find_taskforce_ul(tmp_tree)[0]
+        taskforce_li = find_taskforce_li(tmp_tree)[0]
+        taskforce_ul.clear()
+        for tf in tflist:
+            tmp_taskforce_li = deepcopy(taskforce_li)
+
+            # set the values on the template
+            for action, element in etree.iterwalk(tmp_taskforce_li):
+                if element.tag == span_tag:
+                    element.text = tf
+                    
+            # add the <li> to the <ul>
+            taskforce_ul.append(tmp_taskforce_li)
+            del tmp_taskforce_li
+        
+        del taskforce_ul, taskforce_li
+    else:
+        # remove the <ul> if nothing was found
+        taskforce_ul = find_taskforce_ul(tmp_tree)[0]
+        taskforce_ul.getparent().remove(taskforce_ul)
+        del taskforce_ul
+
+    del tflist
+
+    # TODO unicode error with some title...
+    try:
+        find_title(tmp_tree)[0].text = title
+    except ValueError:
+        title = ""
+        find_title(tmp_tree)[0].text = title
+
+    def set_text(node, value):
+        if len(value.strip()) > 0:
+            node.text = value
+        else:
+            node.getparent().remove(node)
+
+    def set_number(node, value):
+        if len(value) > 0 and int(value) > 0:
+            node.text = value
+        else:
+            node.getparent().remove(node)
+
+    find_base(tmp_tree)[0].set('href', URI % (int(year), int(month), str(key)))
+    find_subject(tmp_tree)[0].text = title
+    find_date(tmp_tree)[0].text = date_occurred
+    find_report_key(tmp_tree)[0].text = report_key
+    find_tracking_number(tmp_tree)[0].text = tracking_number
+    find_type(tmp_tree)[0].text = type
+    find_color(tmp_tree)[0].text = dcolor
+
+    set_text(find_classification(tmp_tree)[0], classification)
+    set_text(find_region(tmp_tree)[0], region)
+    set_text(find_attack_on(tmp_tree)[0], attack_on)
+    set_text(find_originator_group(tmp_tree)[0], originator_group)
+    set_text(find_updated_by_group(tmp_tree)[0], updated_by_group)
+    set_text(find_ccir(tmp_tree)[0], ccir)
+    set_text(find_sigact(tmp_tree)[0], sigact)
+    set_text(find_affiliation(tmp_tree)[0], affiliation)
+
+    set_number(find_friendly_wia(tmp_tree)[0],friendly_wia)
+    set_number(find_friendly_kia(tmp_tree)[0],friendly_kia)
+    set_number(find_host_nation_wia(tmp_tree)[0], host_nation_wia)
+    set_number(find_host_nation_kia(tmp_tree)[0], host_nation_kia)
+    set_number(find_civilian_wia(tmp_tree)[0], civilian_wia)
+    set_number(find_civilian_kia(tmp_tree)[0], civilian_kia)
+    set_number(find_enemy_wia(tmp_tree)[0], enemy_wia)
+    set_number(find_enemy_kia(tmp_tree)[0], enemy_kia)
+    set_number(find_enemy_detained(tmp_tree)[0], enemy_detained)
+
+    # location
+    re_lat = re.search(match_geo, latitude)
+    re_long = re.search(match_geo, longitude)
+    if re_lat is not None and re_long is not None:
+        find_lat(tmp_tree)[0].text = latitude
+        find_long(tmp_tree)[0].text = longitude
+        find_coordinates(tmp_tree)[0].text = "%s,%s" % (longitude,latitude)
+    else:
+        xlat = find_lat(tmp_tree)[0]
+        xlong = find_long(tmp_tree)[0]
+        xc = find_coordinates(tmp_tree)[0]
+        xlat.getparent().remove(xlat)
+        xlong.getparent().remove(xlong)
+        xc.getparent().remove(xc)
+    del re_lat, re_long
+
+
+    re_mgrs_iter = re.finditer(match_mgrs, mgrs + " " + summary)
+    mgrs_list = set()
+    for re_mgrs in re_mgrs_iter:
+        if re_mgrs is not None:
+            mgrs_list.add( re_mgrs.group(0).strip().replace(" ","") )
+
+    if len(mgrs_list) > 0:
+        mgrs_ul = find_mgrs_ul(tmp_tree)[0]
+        mgrs_li = find_mgrs_li(tmp_tree)[0]
+        mgrs_ul.clear()
+        for tmpmgrs in mgrs_list:
+            tmp_mgrs_li = deepcopy(mgrs_li)
+
+            for action, element in etree.iterwalk(tmp_mgrs_li):
+                if element.tag == span_tag:
+                    element.text = tmpmgrs
+                    
+            mgrs_ul.append(tmp_mgrs_li)
+            del tmp_mgrs_li
+
+        del mgrs_ul, mgrs_li
+
+    else:
+        mgrs_ul = find_mgrs_ul(tmp_tree)[0]
+        mgrs_ul.getparent().remove(mgrs_ul)
+        del mgrs_ul
+
+    del mgrs_list
+
+    re_germany = re.search(match_germany, title + " " + summary + " " + unit_name)
+    if re_germany is not None:
+        ger = re_germany.group(1).strip()
+        find_isaf_country(tmp_tree)[0].text = ger
+    else:
+        isaf = find_isaf_country(tmp_tree)[0]
+        isaf.getparent().remove(isaf)
+        del isaf
+
+    del re_germany
+
+    try:
+        find_summary(tmp_tree)[0].text = summary
+    except ValueError:
+        find_summary(tmp_tree)[0].text = ""
+
+    try:
+        tmp_tree.write(destfile)
+        if DEBUG:
+            sys.stderr.write("%s\n" % destfile)
+
+    except IOError:
+        sys.stderr.write("Error: could not write file %s.\n" % destfile)
+        sys.exit(1)
+
+    del tmp_tree, destfile
+
+
+if DEBUG:
+    sys.stderr.write("Warning: %d lines skipped.\n" % skipcount)
